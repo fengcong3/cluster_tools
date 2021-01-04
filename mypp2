@@ -1,0 +1,35 @@
+#!/usr/bin/bash
+command_list_file=$1
+threads=$2
+
+function a_sub { 
+    sleep 3 
+}
+
+tmp_fifofile="/tmp/threads.$$.fifo"
+mkfifo $tmp_fifofile      
+exec 6<>$tmp_fifofile      
+rm $tmp_fifofile
+
+for ((i=0;i<$threads;i++))
+do
+    echo
+done >&6 
+k=0
+cat $command_list_file | while read line ;do 
+    read -u6
+    let k+=1
+    { 
+        $line 1>$command_list_file.$k.o 2>$command_list_file.$k.e && { 
+            echo "$command_list_file $k command finished"
+        } || {
+            echo "$command_list_file $k command error"
+        }
+    echo >&6 
+    } &
+done
+
+wait 
+
+exec 6>&- 
+exit 0

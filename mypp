@@ -1,0 +1,34 @@
+#!/usr/bin/bash
+script_list=$1
+threads=$2
+
+function a_sub { 
+    sleep 3 
+}
+
+tmp_fifofile="/tmp/threads.$$.fifo"
+mkfifo $tmp_fifofile      
+exec 6<>$tmp_fifofile      
+rm $tmp_fifofile
+
+for ((i=0;i<$threads;i++))
+do
+    echo
+done >&6 
+
+for i in `cat $script_list`;do 
+    read -u6
+    { 
+        sh $i 1>$i.o$$ 2>$i.e$$ && { 
+            echo "$i finished"
+        } || {
+            echo "$i error"
+        }
+    echo >&6 
+    } &
+done
+
+wait 
+
+exec 6>&- 
+exit 0

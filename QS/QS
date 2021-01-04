@@ -1,0 +1,332 @@
+#!/public/home/fengcong/anaconda2/envs/py3/bin/python
+#--coding:utf-8--
+#fengcong@caas.cn
+#2020-6-8 10:31:01
+#usage：QS.py -h
+
+
+
+import sys
+import argparse
+import os
+import random
+import string
+import socket
+sstat=True
+def wf(file_writer,line):
+    global sstat
+    if line.strip().endswith("##--/--##"):
+        return
+    if line.strip()=="##nos##":
+        sstat=(not sstat)
+
+    if line.strip().endswith("|") or line.strip().endswith("\\") or len(line.strip()) == 0 or line.strip().startswith("#") or sstat==False:
+        if line.strip()=="EOF":
+            f1.write(line.strip()+"\n")
+        else:
+            f1.write(12*" "+line.strip()+"\n")
+    else :
+        f1.write(12*" "+line.strip()+"\n")
+        f1.write(12*" "+'cstat=${PIPESTATUS[@]};stats=${stats}":""${cstat}" && echo QSstats_${stats_num}:${cstat} && let stats_num+=1  ##--/--##'+"\n")
+if __name__ == "__main__":
+    cmdparser = argparse.ArgumentParser(description="quick qsub/fengcong@caas.cn" )
+
+    cmdparser.add_argument("-p","--threads", dest="threads",type=int, required=True,
+                            help="threads/core.(eg. -p 1)")
+    cmdparser.add_argument("-m","--memory", dest="memory",type=int, required=True,
+                            help="memory usage,G(eg. -m 1)")
+    cmdparser.add_argument("-q","--queue", dest="queue",type=str, nargs='?',  const="csf_queue", default="csf_queue",
+                            help="queue,default:csf_queue")
+    cmdparser.add_argument("-c","--host", dest="host",type=str, default="1",
+                            help="host,if specific multi-host,connect with '/'.\n (eg. -c comput1/comput2)")
+    cmdparser.add_argument("-i","--priority", dest="priority",type=int, default=0,
+                            help="priority,-1024 to 1020 (eg. -i 1020)")
+    cmdparser.add_argument("-e","--conda", dest="conda",type=str,
+                            help="conda enviroment(eg. -e py3)")
+    cmdparser.add_argument("-l","--email", dest="email",type=str,
+                            help="email notification(eg. -l test@qq.com)")
+    cmdparser.add_argument("-r","--memplot", dest="memplot",action="store_true", 
+                            help="Record memory usage and draw diagrams(eg. -r)")
+    cmdparser.add_argument("-s","--stats", dest="stats",action="store_true", 
+                            help="record exit status for each command(eg. -s)")
+    cmdparser.add_argument("-a","--append", dest="append",type=int,
+                            help="append to limit queue,Assign priority to limit queue(eg. -a 3)")
+    cmdparser.add_argument("-n","--nolocal", dest="nolocal",action="store_true",
+                            help="if not on login4,but u wana qsub job(eg. -n)")
+    cmdparser.add_argument("-o","--port", dest="port",type=int,
+                            help="if not on login4,but u wana qsub job,u must Specify this parameter(eg. -o 40006)")
+    cmdparser.add_argument('scripts', metavar='scripts', type=str, nargs='+',
+                    help='scripts of u wanna sub.')
+    
+    args = cmdparser.parse_args()
+    #random mail list
+    mlist=''.join(random.sample(string.ascii_letters + string.digits, 8))
+
+    #if -a specify
+    if args.append != None and not args.nolocal:
+        for_QS_server_tmp_list=["/public/home/fengcong/QS"]+sys.argv[1:]
+        if "-a" in for_QS_server_tmp_list:
+            for_QS_server_tmp_index=for_QS_server_tmp_list.index("-a")
+            del for_QS_server_tmp_list[for_QS_server_tmp_index]
+            del for_QS_server_tmp_list[for_QS_server_tmp_index]
+        else:
+            for_QS_server_tmp_index=for_QS_server_tmp_list.index("-a%d"%(args.append))
+            del for_QS_server_tmp_list[for_QS_server_tmp_index]
+        for_QS_server_cmd=" ".join(for_QS_server_tmp_list)
+        for_QS_server_str="%s<---->%d<---->%s<---->%s<---->%s\n"%(args.queue,args.append,os.getcwd(),for_QS_server_cmd,mlist)
+        user = os.popen('whoami')
+        user = user.readline()
+        user = user.strip('\n')
+        write_path="/public/home/%s/.QS_server.queue/tmp/QS_server.fifo.tmp"%(user)
+        wf=os.open(write_path, os.O_SYNC | os.O_CREAT | os.O_WRONLY)
+        print(for_QS_server_str)
+        bb=bytes(for_QS_server_str, 'utf-8')
+        os.write(wf,bb)
+        os.close(wf)
+        exit(0)
+    #if -n specify
+    if  args.nolocal:
+        #connect sockect server
+        IP = "login4"
+        port = args.port
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((IP,port))
+        
+        #deal with command
+        for_QS_server_tmp_list=["/public/home/fengcong/QS"]+sys.argv[1:]
+        #-n
+        for_QS_server_tmp_index=for_QS_server_tmp_list.index("-n")
+        del for_QS_server_tmp_list[for_QS_server_tmp_index]
+        for_QS_server_cmd=" ".join(for_QS_server_tmp_list)
+        for_QS_server_str="%s<---->%d<---->%s<---->%s<---->%s\n"%("noqueue",0,os.getcwd(),for_QS_server_cmd,mlist)
+        #if -a
+        if args.append != None:
+            if "-a" in for_QS_server_tmp_list:
+                for_QS_server_tmp_index=for_QS_server_tmp_list.index("-a")
+                del for_QS_server_tmp_list[for_QS_server_tmp_index]
+                del for_QS_server_tmp_list[for_QS_server_tmp_index]
+            else:
+                for_QS_server_tmp_index=for_QS_server_tmp_list.index("-a%d"%(args.append))
+                del for_QS_server_tmp_list[for_QS_server_tmp_index]
+            for_QS_server_cmd=" ".join(for_QS_server_tmp_list)
+            for_QS_server_str="%s<---->%d<---->%s<---->%s<---->%s\n"%(args.queue,args.append,os.getcwd(),for_QS_server_cmd,mlist)
+        
+        
+        print(for_QS_server_str)
+        s.sendall(for_QS_server_str.encode())
+        s.close()
+        exit(0)
+
+    #print(args)
+    ls=args.host.split("/")
+    njob_each=(len(args.scripts)//len(ls))+1
+    if len(args.scripts)%len(ls)==0:
+        njob_each=len(args.scripts)//len(ls)
+    #random mail list
+    #mlist=''.join(random.sample(string.ascii_letters + string.digits, 8))
+    i=0
+    for host in ls:
+        if i > len(args.scripts)-1:
+            break
+        for script in args.scripts[i:]:
+            #get abs path and script name
+            script=os.path.abspath(script)
+            cwd1=os.getcwd()
+            swd=os.path.dirname(script)
+            sna=os.path.basename(script)
+            
+            #change dir
+            os.chdir(swd)
+            #get cwd
+            cwd=os.getcwd()
+            
+
+            #modify the script
+            newscriptname=sna+"."+''.join(random.sample(string.ascii_letters + string.digits, 8))
+            inf= open(script,"r")
+            condapath=""
+            if args.conda != None:
+                condarc_cmd="""
+                cat ~/.QSrc
+                """
+                condapath=os.popen(condarc_cmd).readlines()[0].strip()
+
+
+            header='''
+            #!/usr/bin/sh
+            #-*# It has been modified by QS.py : %s #-*#
+            cat /public/home/fengcong/.chenglab
+            #change dir
+            cd %s ;
+            #conda enviroment
+            source %s
+            conda init
+            conda activate %s
+            #time
+            echo Running on host `hostname`
+            echo PID $$
+            time1=`date +"%%Y-%%m-%%d %%H:%%M:%%S"`
+            echo Start Time is `date`
+            echo Directory is `pwd`
+            #stats,how to del: sed -i "/##--\/--##$/d" your_work.sh 
+            stats="s"
+            stats_num=1
+            echo "-------------------------------------------------------------------"
+            #origin script content
+            #########################################################################start
+            \n'''%(newscriptname,cwd,condapath,args.conda)
+
+            footer='''
+
+            #########################################################################end
+            echo "-------------------------------------------------------------------"
+            conda deactivate
+            echo End Time is `date`
+            time2=`date +"%Y-%m-%d %H:%M:%S"`
+            timerun1=$(($(date +%s -d "$time2") - $(date +%s -d "$time1")))
+            echo $timerun1 | awk '{print "Running time is " $1*1/3600 " hours"}'
+            echo $stats
+            '''
+
+            header1='''
+            #!/usr/bin/sh
+            #-*# It has been modified by QS.py : %s #-*#
+            cat /public/home/fengcong/.chenglab
+            #change dir
+            cd %s ;
+            #time
+            echo Running on host `hostname`
+            echo PID $$
+            time1=`date +"%%Y-%%m-%%d %%H:%%M:%%S"`
+            echo Start Time is `date`
+            echo Directory is `pwd`
+            #stats,how to del: sed -i "/##--\/--##$/d" your_work.sh
+            stats="s"
+            stats_num=1
+            echo "-------------------------------------------------------------------"
+            #origin script content
+            #########################################################################start
+            \n'''%(newscriptname,cwd)
+
+            footer1='''
+
+            #########################################################################end
+            echo "-------------------------------------------------------------------"
+            echo End Time is `date`
+            time2=`date +"%Y-%m-%d %H:%M:%S"`
+            timerun1=$(($(date +%s -d "$time2") - $(date +%s -d "$time1")))
+            echo $timerun1 | awk '{print "Running time is " $1*1/3600 " hours"}'
+            echo $stats
+            '''
+
+            if not args.conda:
+                footer=footer1
+                header=header1
+
+        
+            #check 
+            mod=False
+            ll=inf.readline()
+            ll=inf.readline()
+            ll=inf.readline()
+            if ll.strip().startswith("#-*#") and ll.strip().endswith("#-*#"):
+                mod=True
+            inf.seek(0)
+
+            if not mod:
+                f1=open(newscriptname,"w")
+                f1.write(header)
+
+                for line in inf.readlines():
+                    if args.stats:
+                        wf(f1,line)
+                    else:
+                        f1.write(12*" "+line.strip()+"\n")
+                inf.close()
+
+                f1.write(footer)
+                f1.close()
+                # mv 
+
+                cmd="""
+                mv %s %s;
+                chmod +x %s
+                """%(newscriptname,script,script)
+
+                os.system(cmd)
+            else:
+                f1=open(newscriptname,"w")
+                f1.write(header)
+
+                stt=False
+                tk=False
+                for line in inf.readlines():
+                    if line.strip()=="#########################################################################start":
+                        stt=True
+                        tk=True
+                    elif line.strip()=="#########################################################################end":
+                        stt=False
+
+                    if stt:
+                        if tk:
+                            tk=False
+                        else:
+                            if args.stats:
+                                wf(f1,line)
+                            else:
+                                f1.write(12*" "+line.strip()+"\n")
+                inf.close()
+
+                f1.write(footer)
+                f1.close()
+                # mv 
+
+                cmd="""
+                mv %s %s;
+                chmod +x %s
+                """%(newscriptname,script,script)
+
+                os.system(cmd)
+
+
+            # qsub 
+
+            cmd1='qsub -V -p '+ str(args.priority) +' -q '+args.queue+' -l mem='+str(args.memory)+'G,nodes='+host+':ppn='+str(args.threads)+' -M '+ mlist +' '+ script 
+            
+
+            print(cmd1)
+            cc='''
+            echo -ne "%s" >> %s
+            '''%("#qsub:"+cmd1.strip()+"\n\t",script)
+            os.system(cc) #append sub cmd to script
+
+            #submit the job
+            jobid=os.popen(cmd1).readlines()[0].strip()
+
+            # monitor 
+            if args.email != None or  args.memplot == True:
+                scriptname=script
+                workdir=os.path.dirname(script)
+                subcmd=cmd1
+                moni_cmd=""
+                if args.email != None and args.memplot == True:
+                    moni_cmd='nohup sh  /public/home/fengcong/monitor_task.sh %s %s %s "%s"  %s Y > /dev/null 2>&1 & '%(jobid,scriptname,workdir,subcmd,args.email)
+                elif args.email != None and args.memplot == False:
+                    moni_cmd='nohup sh  /public/home/fengcong/monitor_task.sh %s %s %s "%s"  %s N > /dev/null 2>&1 & '%(jobid,scriptname,workdir,subcmd,args.email)
+                elif args.email == None and args.memplot == True:
+                    moni_cmd='nohup sh  /public/home/fengcong/monitor_task.sh %s %s %s "%s"  %s Y > /dev/null 2>&1 &'%(jobid,scriptname,workdir,subcmd,"nobody")
+                elif args.email == None and args.memplot == False:
+                    moni_cmd='nohup sh  /public/home/fengcong/monitor_task.sh %s %s %s "%s"  %s N > /dev/null 2>&1 &'%(jobid,scriptname,workdir,subcmd,"nobody")
+                else:
+                    pass
+                
+                os.popen(moni_cmd)
+            os.chdir(cwd1)
+
+            i+=1
+            if (i )%njob_each==0:
+                break
+                
+
+
+
