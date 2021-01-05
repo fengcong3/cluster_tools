@@ -1,0 +1,10 @@
+#!/usr/bin/expect  -f
+set scriptname [lindex $argv 0]
+set node [lindex $argv 1]
+set dir [exec pwd ]
+spawn ssh $node
+set timeout 300
+expect "$"
+send "cd $dir;nohup sh $scriptname 1>$scriptname.o 2>$scriptname.e & \r exit;\r"
+#interact
+expect eof

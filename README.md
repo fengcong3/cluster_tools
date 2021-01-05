@@ -73,3 +73,10 @@ Monitor the memory usage of a background process and its child processes, and dr
 usage: nohup mywd PID outprefix &
 ```
 
+## toudi.exp
+Deliver the script to any node and execute it in the background.
+```
+usage: toudi.exp scriptname.sh nodename
+e.g. nohup hup toudi.exp test.sh comput107
+```
+
