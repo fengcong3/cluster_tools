@@ -67,5 +67,9 @@ A simple script, when you have many commands to execute, it can control the numb
 usage: mypp2 command_list.sh threads
 ```
 
-
+## mywd
+Monitor the memory usage of a background process and its child processes, and draw graphs.
+```
+usage: nohup mywd PID outprefix &
+```
 
