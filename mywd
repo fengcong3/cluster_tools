@@ -1,0 +1,26 @@
+#!/usr/bin/sh
+
+#usage: mywd  PID  OUTPREFIX
+pid=$1
+outprefix=$2
+memfile=$outprefix.$pid.m
+echo -ne "time\tmem_kb\tvmem_kb\n" > $memfile
+
+while :
+do
+    My_PIDS=$(ps -ef | grep $pid | grep -v grep |grep -v mywd| awk '{print $2}')
+    if [ "$My_PIDS" = "" ]; then
+        break
+    fi
+
+    pstree  -p $pid | sed 's:(:\n:g' | grep -o ".*)" | sed 's:)::g' > .tmp.$pid.pid
+    vmem=`ps -v | grep -f .tmp.$pid.pid | awk '{sum += $7}END{print sum}'`
+    mem=`ps -v | grep -f .tmp.$pid.pid | awk '{sum += $8}END{print sum}'`
+    echo -ne "`date +"%Y_%m_%d_%H:%M:%S"`\t$vmem\t$mem\n" >> $memfile
+
+
+    sleep 2m
+done 
+rm .tmp.$pid.pid
+
+/public/home/fengcong/anaconda2/envs/R/bin/Rscript /public/home/fengcong/memplot.R $memfile
